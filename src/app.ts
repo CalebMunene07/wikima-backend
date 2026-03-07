@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -11,7 +11,7 @@ import authRoutes       from "./modules/auth/auth.routes";
 import tourRoutes       from "./modules/tours/tours.routes";
 import bookingRoutes    from "./modules/bookings/bookings.routes";
 import paymentRoutes    from "./modules/payments/payments.routes";
-import newsletterRoutes from "./routes/newsletter";   // ← NEW
+import newsletterRoutes from "./routes/newsletter";
 
 dotenv.config();
 
@@ -32,7 +32,7 @@ app.use(
   })
 );
 
-// ── IMPORTANT: Stripe webhook needs raw body — must be BEFORE express.json() ──
+// ── Stripe webhook needs raw body — must be BEFORE express.json() ──
 app.use(
   "/api/payments/stripe/webhook",
   express.raw({ type: "application/json" })
@@ -43,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Health check ──
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({
     status: "ok",
     service: "Wikima Safari API",
@@ -56,25 +56,33 @@ app.use("/api/auth",       authRoutes);
 app.use("/api/tours",      tourRoutes);
 app.use("/api/bookings",   bookingRoutes);
 app.use("/api/payments",   paymentRoutes);
-app.use("/api/newsletter", newsletterRoutes);   // ← NEW
+app.use("/api/newsletter", newsletterRoutes);
 
 // ── 404 handler ──
-app.use((_req, res) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
 });
 
 // ── Global error handler ──
-app.use(errorHandler);
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  errorHandler(err, req, res, next);
+});
 
 // ── Start server ──
 const PORT = process.env.PORT || 5000;
-const start = async () => {
-  await connectDB();
-  app.listen(PORT, () => {
-    console.log(`🚀 Wikima API running on port ${PORT}`);
-    console.log(`📋 Health check: http://localhost:${PORT}/health`);
-  });
+const start = async (): Promise<void> => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`🚀 Wikima API running on port ${PORT}`);
+      console.log(`📋 Health check: http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
 };
+
 start();
 
 export default app;
