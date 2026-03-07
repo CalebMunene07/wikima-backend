@@ -1,64 +1,76 @@
 // src/utils/generatePDF.ts
 import PDFDocument from "pdfkit";
-import { Booking } from "../types";
+
+// Inline type — no external import needed
+interface Booking {
+  id: string;
+  reference: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone?: string;
+  tour_title?: string;
+  travel_date?: string;
+  guests?: number;
+  package?: string;
+  total_amount?: number;
+  deposit_amount?: number;
+  special_requests?: string;
+  status?: string;
+  created_at?: string;
+}
 
 export function generateInvoiceBuffer(booking: Booking): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
 
-    doc.on("data",  (chunk) => chunks.push(chunk));
-    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    // Header
-    doc.rect(0, 0, 595, 80).fill("#1a1208");
-    doc.fillColor("#D4AF37").fontSize(22).font("Helvetica-Bold")
-       .text("WIKIMA SAFARI", 50, 25);
-    doc.fillColor("#c8a96e").fontSize(8).font("Helvetica")
-       .text("Est. 2010 · Nairobi, Kenya", 50, 50);
+    const total   = booking.total_amount   || 0;
+    const deposit = booking.deposit_amount || 0;
+    const balance = total - deposit;
 
-    // Invoice title
-    doc.fillColor("#ffffff").fontSize(14).font("Helvetica-Bold")
-       .text("BOOKING INVOICE", 400, 30, { align: "right" });
-    doc.fillColor("#b8a070").fontSize(8).font("Helvetica")
-       .text(`Ref: ${booking.reference}`, 400, 50, { align: "right" })
-       .text(`Date: ${new Date().toLocaleDateString("en-GB")}`, 400, 62, { align: "right" });
+    // ── Header ──
+    doc.fontSize(22).font("Helvetica-Bold").text("WIKIMA SAFARI", 50, 50);
+    doc.fontSize(9).font("Helvetica").fillColor("#888").text("EXPEDITIONS · EAST AFRICA", 50, 76);
+    doc.fillColor("#000");
 
-    // Body content
-    doc.fillColor("#2a2520").fontSize(10).moveDown(4);
+    doc.fontSize(11).font("Helvetica-Bold").text("BOOKING CONFIRMATION", 350, 50, { align: "right" });
+    doc.fontSize(14).fillColor("#4B5320").text(booking.reference || "—", 350, 68, { align: "right" });
+    doc.fillColor("#000");
 
-    const rows = [
-      ["Guest Name",   booking.guest_name],
-      ["Email",        booking.guest_email],
-      ["Phone",        booking.guest_phone],
-      ["Tour",         booking.tour_title],
-      ["Travel Date",  new Date(booking.travel_date).toLocaleDateString("en-GB", { dateStyle: "long" })],
-      ["Guests",       `${booking.guests}`],
-      ["Package",      booking.package],
-      ["Total Amount", `$${booking.total_amount}`],
-      ["Deposit Due",  `$${booking.deposit_amount}`],
-    ];
+    doc.moveTo(50, 100).lineTo(550, 100).strokeColor("#e0d8cc").stroke();
 
-    let y = 110;
-    rows.forEach(([label, value], i) => {
-      if (i % 2 === 0) doc.rect(50, y - 4, 495, 18).fill("#f5f2ec");
-      doc.fillColor("#6b6560").fontSize(9).font("Helvetica")
-         .text(label, 58, y);
-      doc.fillColor("#2a2520").font("Helvetica-Bold")
-         .text(value, 220, y);
-      y += 20;
-    });
+    // ── Guest Details ──
+    doc.y = 115;
+    doc.fontSize(8).font("Helvetica-Bold").fillColor("#888").text("GUEST DETAILS", 50);
+    doc.fillColor("#000").fontSize(11).font("Helvetica").moveDown(0.3);
+    doc.text(`Name:   ${booking.guest_name || "—"}`);
+    doc.text(`Email:  ${booking.guest_email || "—"}`);
+    if (booking.guest_phone) doc.text(`Phone:  ${booking.guest_phone}`);
 
-    // Totals band
-    doc.rect(50, y + 10, 495, 30).fill("#1a1208");
-    doc.fillColor("#D4AF37").fontSize(14).font("Helvetica-Bold")
-       .text(`TOTAL: $${booking.total_amount}`, 58, y + 18);
+    // ── Safari Details ──
+    doc.moveDown(0.8);
+    doc.fontSize(8).font("Helvetica-Bold").fillColor("#888").text("SAFARI DETAILS");
+    doc.fillColor("#000").fontSize(11).font("Helvetica").moveDown(0.3);
+    doc.text(`Tour:     ${booking.tour_title || "—"}`);
+    doc.text(`Package:  ${booking.package   || "—"}`);
+    doc.text(`Date:     ${booking.travel_date ? new Date(booking.travel_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "—"}`);
+    doc.text(`Guests:   ${booking.guests || 1}`);
 
-    // Footer
-    doc.rect(0, 762, 595, 80).fill("#1a1208");
-    doc.fillColor("#9a7840").fontSize(8).font("Helvetica")
-       .text("www.wikimasafari.com · info@wikimasafari.com · +254 700 000 000", 50, 780, { align: "center", width: 495 });
+    // ── Payment Summary ──
+    doc.moveDown(0.8);
+    doc.fontSize(8).font("Helvetica-Bold").fillColor("#888").text("PAYMENT SUMMARY");
+    doc.fillColor("#000").fontSize(11).font("Helvetica").moveDown(0.3);
+    doc.text(`Tour Total:       $${total.toLocaleString()}`);
+    doc.text(`Deposit Paid:     $${deposit.toLocaleString()}`);
+    doc.text(`Remaining Balance: $${balance.toLocaleString()}`);
+
+    // ── Footer ──
+    doc.moveTo(50, 680).lineTo(550, 680).strokeColor("#e0d8cc").stroke();
+    doc.fontSize(9).fillColor("#888").text("Wikima Safari Expeditions · info@wikimasafari.com · wikimasafari.com", 50, 690, { align: "center" });
 
     doc.end();
   });
