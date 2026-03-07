@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateInvoiceBuffer = generateInvoiceBuffer;
+exports.generateInvoiceBuffer = void 0;
 // src/utils/generatePDF.ts
 const pdfkit_1 = __importDefault(require("pdfkit"));
 function generateInvoiceBuffer(booking) {
@@ -53,3 +53,4 @@ function generateInvoiceBuffer(booking) {
         doc.end();
     });
 }
+exports.generateInvoiceBuffer = generateInvoiceBuffer;

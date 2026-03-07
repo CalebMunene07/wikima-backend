@@ -110,7 +110,7 @@ const stripeCreateIntent = async (req, res) => {
     const { amount, bookingId, bookingRef, customerEmail } = req.body;
     try {
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(amount * 100), // Stripe uses cents
+            amount: Math.round(amount * 100),
             currency: process.env.STRIPE_CURRENCY || "usd",
             metadata: { bookingId, bookingRef },
             receipt_email: customerEmail,
