@@ -3,7 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryStkStatus = exports.initiateStkPush = exports.getMpesaToken = void 0;
+exports.getMpesaToken = getMpesaToken;
+exports.initiateStkPush = initiateStkPush;
+exports.queryStkStatus = queryStkStatus;
 // src/modules/payments/mpesa.service.ts
 const axios_1 = __importDefault(require("axios"));
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -19,7 +21,6 @@ async function getMpesaToken() {
     });
     return data.access_token;
 }
-exports.getMpesaToken = getMpesaToken;
 // ── 2. Initiate STK Push (sends popup to user's phone) ────────────────────
 async function initiateStkPush({ phone, amount, bookingRef, }) {
     const token = await getMpesaToken();
@@ -33,12 +34,12 @@ async function initiateStkPush({ phone, amount, bookingRef, }) {
         Password: password,
         Timestamp: timestamp,
         TransactionType: "CustomerPayBillOnline",
-        Amount: Math.ceil(amount),
-        PartyA: phone,
+        Amount: Math.ceil(amount), // M-Pesa requires integer, no decimals
+        PartyA: phone, // format: 2547XXXXXXXX
         PartyB: process.env.MPESA_SHORTCODE,
         PhoneNumber: phone,
         CallBackURL: process.env.MPESA_CALLBACK_URL,
-        AccountReference: bookingRef,
+        AccountReference: bookingRef, // e.g. WS-A1B2C3
         TransactionDesc: "Wikima Safari Booking",
     }, {
         headers: { Authorization: `Bearer ${token}` },
@@ -46,7 +47,6 @@ async function initiateStkPush({ phone, amount, bookingRef, }) {
     return data;
     // returns: { CheckoutRequestID, MerchantRequestID, ResponseCode, ResponseDescription }
 }
-exports.initiateStkPush = initiateStkPush;
 // ── 3. Query STK Push status (poll from frontend every 3 seconds) ──────────
 async function queryStkStatus(checkoutRequestId) {
     const token = await getMpesaToken();
@@ -66,4 +66,3 @@ async function queryStkStatus(checkoutRequestId) {
     return data;
     // returns: { ResultCode: "0" means success, "1032" means cancelled by user }
 }
-exports.queryStkStatus = queryStkStatus;
