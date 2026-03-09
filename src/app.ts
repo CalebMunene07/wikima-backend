@@ -26,7 +26,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://wikima-frontend.onrender.com",
+       "https://wikima-frontend.onrender.com",
+      "https://my-tours-app.onrender.com",  
     ],
     credentials: true,
   })
