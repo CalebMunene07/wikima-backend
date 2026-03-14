@@ -9,39 +9,67 @@ const PRICES: Record<string, number> = {
   Luxury:   2800,
 };
 
+// Children under 12 get 50% discount
+const CHILDREN_DISCOUNT = 0.5; // 50% off
+
 // ── POST /api/bookings ─────────────────────────────────────────
 export const createBooking = async (req: Request, res: Response) => {
   const {
     tourTitle, tourId, guestName, guestEmail,
-    guestPhone, travelDate, guests, package: pkg,
-    specialRequests,
+    guestPhone, travelDate, guests, adults, children,
+    package: pkg, specialRequests,
   } = req.body;
 
-  if (!tourTitle || !guestName || !guestEmail || !travelDate || !guests || !pkg) {
+  // Validate required fields
+  if (!tourTitle || !guestName || !guestEmail || !travelDate || !pkg) {
     return res.status(400).json({ error: "Missing required booking fields" });
   }
 
+  // Validate package
   if (!PRICES[pkg]) {
     return res.status(400).json({ error: "Invalid package. Must be Standard, Premium or Luxury" });
   }
 
   try {
-    const totalAmount   = PRICES[pkg] * Number(guests);
+    let totalGuests: number;
+    let totalAmount: number;
+    
+    // Handle both new format (adults/children) and old format (guests)
+    if (adults !== undefined || children !== undefined) {
+      // New format with children discount
+      const numAdults = Number(adults) || 0;
+      const numChildren = Number(children) || 0;
+      totalGuests = numAdults + numChildren;
+      
+      // Calculate with children discount
+      const adultAmount = PRICES[pkg] * numAdults;
+      const childrenAmount = PRICES[pkg] * numChildren * CHILDREN_DISCOUNT;
+      totalAmount = adultAmount + childrenAmount;
+    } else {
+      // Old format - no children discount
+      totalGuests = Number(guests) || 1;
+      totalAmount = PRICES[pkg] * totalGuests;
+    }
+    
+    // Calculate deposit (30% of total)
     const depositAmount = parseFloat((totalAmount * 0.30).toFixed(2));
-    const reference     = generateRef();
+    const reference = generateRef();
 
+    // Insert booking with new fields
     const { rows } = await pool.query(
       `INSERT INTO bookings
         (reference, tour_id, tour_title, guest_name, guest_email,
-         guest_phone, travel_date, guests, package,
-         total_amount, deposit_amount, special_requests, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending')
+         guest_phone, travel_date, guests, adults, children,
+         package, total_amount, deposit_amount, special_requests, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
        RETURNING *`,
       [
         reference, tourId ?? null, tourTitle,
         guestName, guestEmail, guestPhone ?? null,
-        travelDate, Number(guests), pkg,
-        totalAmount, depositAmount, specialRequests ?? null,
+        travelDate, totalGuests, 
+        adults ? Number(adults) : null, 
+        children ? Number(children) : null,
+        pkg, totalAmount, depositAmount, specialRequests ?? null,
       ]
     );
 
