@@ -1,12 +1,11 @@
 {
   "name": "wikima-backend",
   "version": "1.0.0",
-  "description": "Wikima Safari Backend",
   "main": "dist/app.js",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "nodemon src/app.ts",
     "build": "tsc",
-    "start": "node -r dotenv/config dist/app.js",
+    "start": "node dist/app.js",
     "migrate": "ts-node src/migrate.ts"
   },
   "dependencies": {
