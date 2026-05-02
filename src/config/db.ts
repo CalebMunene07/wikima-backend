@@ -3,16 +3,29 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Supabase PostgreSQL connection
-// DATABASE_URL format: postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+// Railway does NOT support IPv6.
+// Supabase's direct host (db.xxx.supabase.co:5432) resolves to IPv6 in some regions
+// causing ENETUNREACH. Solution: use the Supabase SESSION POOLER which is IPv4-only.
+//
+// Get the pooler URL from:
+//   Supabase Dashboard → Settings → Database → Connection pooling → Session mode
+//
+// The URL looks like:
+//   postgresql://postgres.bsxzqjalhrhbwsqrqoao:[PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres
+//
+// Set this as DATABASE_URL in your Railway environment variables.
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // required for Supabase
+    rejectUnauthorized: false,
   },
+  // Force IPv4 — prevents ENETUNREACH on Railway which blocks IPv6
+  // @ts-ignore
+  family: 4,
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('connect', () => {
@@ -25,13 +38,9 @@ pool.on('error', (err) => {
   console.error('DB pool error:', err.message);
 });
 
-// Named export used throughout controllers
 export { pool };
-
-// Default export kept for compatibility
 export default pool;
 
-// Connect & verify on startup
 export const connectDB = async () => {
   try {
     const client = await pool.connect();
