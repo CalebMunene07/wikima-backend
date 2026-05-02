@@ -1,28 +1,25 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
 
-dotenv.config();
+// Ensure .env is loaded from the project root regardless of execution context
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// Railway does NOT support IPv6.
-// Supabase's direct host (db.xxx.supabase.co:5432) resolves to IPv6 in some regions
-// causing ENETUNREACH. Solution: use the Supabase SESSION POOLER which is IPv4-only.
-//
-// Get the pooler URL from:
-//   Supabase Dashboard → Settings → Database → Connection pooling → Session mode
-//
-// The URL looks like:
-//   postgresql://postgres.bsxzqjalhrhbwsqrqoao:[PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres
-//
-// Set this as DATABASE_URL in your Railway environment variables.
+// Fail-fast validation
+if (!process.env.DATABASE_URL) {
+  console.error('❌ CRITICAL ERROR: DATABASE_URL is missing from environment variables.');
+  console.error('Check your .env file or deployment dashboard (Railway/Render).');
+  process.exit(1); 
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Required for Supabase
   },
-  // Force IPv4 — prevents ENETUNREACH on Railway which blocks IPv6
+  // IPv4 force for platforms like Railway that struggle with IPv6 resolution
   // @ts-ignore
-  family: 4,
+  family: 4, 
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
@@ -48,7 +45,8 @@ export const connectDB = async () => {
     console.log('✅ Supabase PostgreSQL connected at:', result.rows[0].now);
     client.release();
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    console.error('❌ Database connection failed Error details below:');
+    console.error(error);
     process.exit(1);
   }
 };
