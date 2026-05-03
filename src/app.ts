@@ -26,19 +26,19 @@ const app = express();
 app.use(helmet());
 app.use(morgan("dev"));
 
-// ── CORS — allows all wikima.pages.dev preview deployments ──
+// ── CORS ──
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
 
     const allowed = [
       "http://localhost:3000",
       "http://localhost:3001",
       "https://wikima.pages.dev",
+      "https://wikimasafari.com",
+      "https://www.wikimasafari.com",
     ];
 
-    // Allow any Cloudflare Pages preview URL for this project
     const isCloudflarePreview = origin.endsWith(".wikima.pages.dev");
 
     if (allowed.includes(origin) || isCloudflarePreview) {
