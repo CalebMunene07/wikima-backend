@@ -26,20 +26,34 @@ const app = express();
 app.use(helmet());
 app.use(morgan("dev"));
 
+// ── CORS — allows all wikima.pages.dev preview deployments ──
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://wikima.pages.dev",
-    "https://959fd077.wikima.pages.dev",
-  ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+
+    const allowed = [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://wikima.pages.dev",
+    ];
+
+    // Allow any Cloudflare Pages preview URL for this project
+    const isCloudflarePreview = origin.endsWith(".wikima.pages.dev");
+
+    if (allowed.includes(origin) || isCloudflarePreview) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
   credentials: true,
 }));
+
 app.use(
   "/api/payments/stripe/webhook",
   express.raw({ type: "application/json" })
 );
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -64,6 +78,7 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
+
 const start = async () => {
   try {
     await connectDB();
@@ -77,5 +92,4 @@ const start = async () => {
 };
 
 start();
-
 export default app;
