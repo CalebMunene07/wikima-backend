@@ -20,6 +20,7 @@ import tourRoutes       from "./modules/tours/tours.routes";
 import bookingRoutes    from "./modules/bookings/bookings.routes";
 import paymentRoutes    from "./modules/payments/payments.routes";
 import newsletterRoutes from "./routes/newsletter";
+import contactRoutes    from "./routes/contact";
 
 const app = express();
 
@@ -34,12 +35,16 @@ app.use(cors({
     const allowed = [
       "http://localhost:3000",
       "http://localhost:3001",
+      "http://localhost:3002",           // Admin portal (local dev)
       "https://wikima.pages.dev",
       "https://wikimasafari.com",
       "https://www.wikimasafari.com",
+      "https://admin.wikimasafari.com",  // Admin portal (production)
     ];
 
-    const isCloudflarePreview = origin.endsWith(".wikima.pages.dev");
+    const isCloudflarePreview =
+      origin.endsWith(".wikima.pages.dev") ||
+      origin.endsWith(".wikimasafari.com");
 
     if (allowed.includes(origin) || isCloudflarePreview) {
       callback(null, true);
@@ -70,6 +75,7 @@ app.use("/api/tours",      tourRoutes);
 app.use("/api/bookings",   bookingRoutes);
 app.use("/api/payments",   paymentRoutes);
 app.use("/api/newsletter", newsletterRoutes);
+app.use("/api/contact",    contactRoutes);  // moved below CORS
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Route not found" });
