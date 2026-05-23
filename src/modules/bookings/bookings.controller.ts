@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import { pool } from "../../config/db";
 import { generateRef } from "../../utils/generateRef";
+import { sendConfirmationEmail } from "../../utils/sendEmail";
 
 const PRICES: Record<string, number> = {
   Standard: 890,
@@ -10,14 +11,16 @@ const PRICES: Record<string, number> = {
 };
 
 // Children under 12 get 50% discount
-const CHILDREN_DISCOUNT = 0.5; // 50% off
+const CHILDREN_DISCOUNT = 0.5;
 
 // ── POST /api/bookings ─────────────────────────────────────────
 export const createBooking = async (req: Request, res: Response) => {
   const {
     tourTitle, tourId, guestName, guestEmail,
     guestPhone, travelDate, guests, adults, children,
-    package: pkg, specialRequests,
+    package: pkg, specialRequests, days,
+    totalAmount: clientTotalAmount,
+    depositAmount: clientDepositAmount,
   } = req.body;
 
   // Validate required fields
@@ -33,29 +36,32 @@ export const createBooking = async (req: Request, res: Response) => {
   try {
     let totalGuests: number;
     let totalAmount: number;
-    
-    // Handle both new format (adults/children) and old format (guests)
-    if (adults !== undefined || children !== undefined) {
-      // New format with children discount
-      const numAdults = Number(adults) || 0;
+    let depositAmount: number;
+
+    // Use client-calculated amounts if provided (handles children discounts, custom pricing)
+    if (clientTotalAmount && clientDepositAmount) {
+      totalAmount   = Number(clientTotalAmount);
+      depositAmount = Number(clientDepositAmount);
+      const numAdults   = Number(adults)   || 1;
       const numChildren = Number(children) || 0;
       totalGuests = numAdults + numChildren;
-      
-      // Calculate with children discount
-      const adultAmount = PRICES[pkg] * numAdults;
+    } else if (adults !== undefined || children !== undefined) {
+      const numAdults   = Number(adults)   || 0;
+      const numChildren = Number(children) || 0;
+      totalGuests   = numAdults + numChildren;
+      const adultAmount    = PRICES[pkg] * numAdults;
       const childrenAmount = PRICES[pkg] * numChildren * CHILDREN_DISCOUNT;
-      totalAmount = adultAmount + childrenAmount;
+      totalAmount   = adultAmount + childrenAmount;
+      depositAmount = parseFloat((totalAmount * 0.60).toFixed(2));
     } else {
-      // Old format - no children discount
-      totalGuests = Number(guests) || 1;
-      totalAmount = PRICES[pkg] * totalGuests;
+      totalGuests   = Number(guests) || 1;
+      totalAmount   = PRICES[pkg] * totalGuests;
+      depositAmount = parseFloat((totalAmount * 0.60).toFixed(2));
     }
-    
-    // Calculate deposit (30% of total)
-    const depositAmount = parseFloat((totalAmount * 0.30).toFixed(2));
+
     const reference = generateRef();
 
-    // Insert booking with new fields
+    // Insert booking
     const { rows } = await pool.query(
       `INSERT INTO bookings
         (reference, tour_id, tour_title, guest_name, guest_email,
@@ -66,14 +72,21 @@ export const createBooking = async (req: Request, res: Response) => {
       [
         reference, tourId ?? null, tourTitle,
         guestName, guestEmail, guestPhone ?? null,
-        travelDate, totalGuests, 
-        adults ? Number(adults) : null, 
+        travelDate, totalGuests,
+        adults   ? Number(adults)   : null,
         children ? Number(children) : null,
         pkg, totalAmount, depositAmount, specialRequests ?? null,
       ]
     );
 
-    res.status(201).json({ booking: rows[0] });
+    const booking = rows[0];
+
+    // Send confirmation emails (non-blocking — don't fail booking if email fails)
+    sendConfirmationEmail(booking).catch(err =>
+      console.error("Email error after booking creation:", err)
+    );
+
+    res.status(201).json({ booking });
   } catch (error) {
     console.error("CreateBooking error:", error);
     res.status(500).json({ error: "Could not create booking" });
@@ -125,7 +138,6 @@ export const getBookingByRef = async (req: Request, res: Response) => {
 // ── GET /api/bookings (admin) ──────────────────────────────────
 export const getAllBookings = async (req: Request, res: Response) => {
   const { status, page = "1", limit = "20" } = req.query;
-
   const offset = (Number(page) - 1) * Number(limit);
 
   try {
@@ -144,7 +156,6 @@ export const getAllBookings = async (req: Request, res: Response) => {
       params
     );
 
-    // Total count for pagination
     const countResult = await pool.query(
       `SELECT COUNT(*) FROM bookings ${status ? "WHERE status = $1" : ""}`,
       status ? [status] : []
