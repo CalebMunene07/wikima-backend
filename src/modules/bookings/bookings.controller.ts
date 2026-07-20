@@ -10,6 +10,14 @@ const PRICES: Record<string, number> = {
   Luxury:   2800,
 };
 
+// Residents (Kenyan/East African) pay 20% less than non-residents
+const RESIDENT_DISCOUNT = 0.20;
+const VALID_VISITOR_TYPES = ["resident", "non-resident"] as const;
+type VisitorType = typeof VALID_VISITOR_TYPES[number];
+
+const priceFor = (basePrice: number, visitorType: VisitorType) =>
+  visitorType === "resident" ? basePrice * (1 - RESIDENT_DISCOUNT) : basePrice;
+
 // Children under 12 get 50% discount
 const CHILDREN_DISCOUNT = 0.5;
 
@@ -21,7 +29,13 @@ export const createBooking = async (req: Request, res: Response) => {
     package: pkg, specialRequests, days,
     totalAmount: clientTotalAmount,
     depositAmount: clientDepositAmount,
+    visitorType: rawVisitorType,
+    referredBy,
   } = req.body;
+
+  // Default to non-resident when not specified; validate if it is
+  const visitorType: VisitorType =
+    VALID_VISITOR_TYPES.includes(rawVisitorType) ? rawVisitorType : "non-resident";
 
   // Validate required fields
   if (!tourTitle || !guestName || !guestEmail || !travelDate || !pkg) {
@@ -49,13 +63,14 @@ export const createBooking = async (req: Request, res: Response) => {
       const numAdults   = Number(adults)   || 0;
       const numChildren = Number(children) || 0;
       totalGuests   = numAdults + numChildren;
-      const adultAmount    = PRICES[pkg] * numAdults;
-      const childrenAmount = PRICES[pkg] * numChildren * CHILDREN_DISCOUNT;
+      const unitPrice      = priceFor(PRICES[pkg], visitorType);
+      const adultAmount    = unitPrice * numAdults;
+      const childrenAmount = unitPrice * numChildren * CHILDREN_DISCOUNT;
       totalAmount   = adultAmount + childrenAmount;
       depositAmount = parseFloat((totalAmount * 0.60).toFixed(2));
     } else {
       totalGuests   = Number(guests) || 1;
-      totalAmount   = PRICES[pkg] * totalGuests;
+      totalAmount   = priceFor(PRICES[pkg], visitorType) * totalGuests;
       depositAmount = parseFloat((totalAmount * 0.60).toFixed(2));
     }
 
@@ -66,8 +81,9 @@ export const createBooking = async (req: Request, res: Response) => {
       `INSERT INTO bookings
         (reference, tour_id, tour_title, guest_name, guest_email,
          guest_phone, travel_date, guests, adults, children,
-         package, total_amount, deposit_amount, special_requests, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
+         package, total_amount, deposit_amount, special_requests, status,
+         visitor_type, referred_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending',$15,$16)
        RETURNING *`,
       [
         reference, tourId ?? null, tourTitle,
@@ -76,6 +92,7 @@ export const createBooking = async (req: Request, res: Response) => {
         adults   ? Number(adults)   : null,
         children ? Number(children) : null,
         pkg, totalAmount, depositAmount, specialRequests ?? null,
+        visitorType, referredBy || null,
       ]
     );
 

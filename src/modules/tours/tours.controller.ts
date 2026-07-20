@@ -2,6 +2,25 @@
 import { Request, Response } from "express";
 import { pool } from "../../config/db";
 
+// Residents (Kenyan/East African) pay 20% less than non-residents.
+// Kept in sync with bookings.controller.ts RESIDENT_DISCOUNT.
+const RESIDENT_DISCOUNT = 0.20;
+
+function withResidentPrices<T extends {
+  standard_price: string | number;
+  premium_price: string | number;
+  luxury_price: string | number;
+}>(tour: T) {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const discount = (v: string | number) => round2(Number(v) * (1 - RESIDENT_DISCOUNT));
+  return {
+    ...tour,
+    standard_price_resident: discount(tour.standard_price),
+    premium_price_resident:  discount(tour.premium_price),
+    luxury_price_resident:   discount(tour.luxury_price),
+  };
+}
+
 // ── GET all active tours ───────────────────────────────────────
 export const getAllTours = async (_req: Request, res: Response) => {
   try {
@@ -12,7 +31,7 @@ export const getAllTours = async (_req: Request, res: Response) => {
        WHERE is_active = true
        ORDER BY created_at DESC`
     );
-    res.json({ tours: rows });
+    res.json({ tours: rows.map(withResidentPrices) });
   } catch (error) {
     console.error("GetAllTours error:", error);
     res.status(500).json({ error: "Could not fetch tours" });
@@ -31,7 +50,7 @@ export const getTourBySlug = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Tour not found" });
     }
 
-    res.json({ tour: rows[0] });
+    res.json({ tour: withResidentPrices(rows[0]) });
   } catch (error) {
     console.error("GetTourBySlug error:", error);
     res.status(500).json({ error: "Could not fetch tour" });
