@@ -10,6 +10,11 @@ const PRICES: Record<string, number> = {
   Luxury:   2800,
 };
 
+// Known package values. "SGR" bookings (beach hotel packages) always send
+// their own client-calculated totalAmount/depositAmount — they have no
+// entry in PRICES since rates come from data/sgrPackages.ts on the frontend.
+const KNOWN_PACKAGES = new Set(["Standard", "Premium", "Luxury", "Romance", "SGR"]);
+
 // Residents (Kenyan/East African) pay 20% less than non-residents
 const RESIDENT_DISCOUNT = 0.20;
 const VALID_VISITOR_TYPES = ["resident", "non-resident"] as const;
@@ -31,6 +36,7 @@ export const createBooking = async (req: Request, res: Response) => {
     depositAmount: clientDepositAmount,
     visitorType: rawVisitorType,
     referredBy,
+    sgrHotel, sgrRegion, sgrRateKES,
   } = req.body;
 
   // Default to non-resident when not specified; validate if it is
@@ -43,8 +49,14 @@ export const createBooking = async (req: Request, res: Response) => {
   }
 
   // Validate package
-  if (!PRICES[pkg]) {
-    return res.status(400).json({ error: "Invalid package. Must be Standard, Premium or Luxury" });
+  if (!KNOWN_PACKAGES.has(pkg)) {
+    return res.status(400).json({ error: "Invalid package. Must be Standard, Premium, Luxury or SGR" });
+  }
+
+  // SGR (beach hotel) bookings must always carry a client-calculated total,
+  // since there's no fixed per-package price to fall back on
+  if (pkg === "SGR" && (!clientTotalAmount || !clientDepositAmount)) {
+    return res.status(400).json({ error: "SGR bookings require totalAmount and depositAmount" });
   }
 
   try {
@@ -82,8 +94,8 @@ export const createBooking = async (req: Request, res: Response) => {
         (reference, tour_id, tour_title, guest_name, guest_email,
          guest_phone, travel_date, guests, adults, children,
          package, total_amount, deposit_amount, special_requests, status,
-         visitor_type, referred_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending',$15,$16)
+         visitor_type, referred_by, sgr_hotel, sgr_region, sgr_rate_kes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending',$15,$16,$17,$18,$19)
        RETURNING *`,
       [
         reference, tourId ?? null, tourTitle,
@@ -93,6 +105,8 @@ export const createBooking = async (req: Request, res: Response) => {
         children ? Number(children) : null,
         pkg, totalAmount, depositAmount, specialRequests ?? null,
         visitorType, referredBy || null,
+        sgrHotel ?? null, sgrRegion ?? null,
+        sgrRateKES ? Number(sgrRateKES) : null,
       ]
     );
 
