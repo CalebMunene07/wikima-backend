@@ -121,3 +121,53 @@ export const sendConfirmationEmail = async (booking: Booking): Promise<void> => 
     console.error("❌ Email send failed:", error);
   }
 };
+
+export const sendReferralNotification = async (params: {
+  referrerEmail: string;
+  referrerName: string;
+  referralCode: string;
+  newGuestName: string;
+  newBookingReference: string;
+}): Promise<void> => {
+  const { referrerEmail, referrerName, referralCode, newGuestName, newBookingReference } = params;
+
+  const html = `
+    <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#2d3a10;">
+      <div style="background:#07301d;padding:28px 32px;text-align:center;">
+        <h1 style="color:#D4AF37;margin:0;font-size:22px;letter-spacing:2px;">WIKIMA SAFARI</h1>
+        <p style="color:#a0c898;margin:6px 0 0;font-size:12px;letter-spacing:3px;text-transform:uppercase;">Your Referral Was Used</p>
+      </div>
+      <div style="padding:32px;background:#fff;">
+        <p style="font-size:16px;">Hi <strong>${referrerName}</strong>,</p>
+        <p style="color:#5a5040;line-height:1.7;">
+          Good news — someone just booked with us using your referral link! We thought you'd like to know.
+        </p>
+        <div style="background:#f6f9f2;border:1px solid #c8dfc0;border-radius:10px;padding:20px;margin:20px 0;">
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tr><td style="padding:7px 0;color:#7a8550;width:45%;">Your Referral Code</td><td style="font-weight:700;color:#07301d;font-family:monospace;font-size:16px;">${referralCode}</td></tr>
+            <tr><td style="padding:7px 0;color:#7a8550;">New Guest</td><td>${newGuestName}</td></tr>
+            <tr><td style="padding:7px 0;color:#7a8550;">Their Booking Ref</td><td style="font-family:monospace;">${newBookingReference}</td></tr>
+          </table>
+        </div>
+        <p style="color:#5a5040;font-size:13px;line-height:1.7;">
+          This is just a thank-you note — there's no discount or monetary reward attached to referrals,
+          we simply wanted you to know that someone found us through you.
+        </p>
+        <div style="margin-top:24px;padding:14px;background:#f0f5e8;border-radius:8px;font-size:12px;color:#4B5320;text-align:center;">
+          <strong>Wikima Safari Expeditions</strong><br/>
+          info@wikimasafari.com · +254 720 069 550 · wikimasafari.com
+        </div>
+      </div>
+    </div>`;
+
+  try {
+    await sendEmail(
+      referrerEmail,
+      `Someone booked using your referral — Wikima Safari 🦁`,
+      html
+    );
+    console.log(`✅ Referral notification sent to ${referrerEmail} for code ${referralCode}`);
+  } catch (error) {
+    console.error("❌ Referral notification email failed:", error);
+  }
+};
