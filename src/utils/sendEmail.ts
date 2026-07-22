@@ -2,6 +2,7 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const FROM_EMAIL    = process.env.FROM_EMAIL || "onboarding@resend.dev";
 const ADMIN_EMAIL   = process.env.ADMIN_EMAIL || "munenecaleb007@gmail.com";
+const SITE_URL       = process.env.SITE_URL || "https://www.wikimasafari.com";
 
 async function sendEmail(to: string, subject: string, html: string) {
   const res = await fetch("https://api.resend.com/emails", {
@@ -75,6 +76,17 @@ export const sendConfirmationEmail = async (booking: Booking): Promise<void> => 
           <p style="font-size:12px;color:#4B5320;font-weight:600;margin:0 0 4px;">📋 Cancellation Policy</p>
           <p style="font-size:12px;color:#6a7a40;margin:0;line-height:1.6;">
             Full refund up to 30 days before departure · 50% refund 15–29 days before · No refund within 14 days
+          </p>
+        </div>
+        <div style="background:#fdfaf0;border:1px solid #e8dcae;border-radius:8px;padding:16px;margin-top:16px;">
+          <p style="font-size:12px;color:#8a6d1a;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.05em;">🔗 Your Personal Referral Link</p>
+          <p style="font-size:12px;color:#6a5a30;margin:0 0 10px;line-height:1.6;">
+            Share this with friends and family. We'll know it was you who sent them our way — no discount
+            or cash reward attached, just our thanks. Keep this email — it's the easiest way to find your
+            link again later.
+          </p>
+          <p style="background:#fff;border:1px solid #e8dcae;border-radius:6px;padding:10px 12px;margin:0;font-family:monospace;font-size:12px;color:#4B5320;word-break:break-all;">
+            ${SITE_URL}/?ref=${booking.reference}
           </p>
         </div>
         <div style="margin-top:24px;padding:14px;background:#f0f5e8;border-radius:8px;font-size:12px;color:#4B5320;text-align:center;">
