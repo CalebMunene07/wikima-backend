@@ -17,7 +17,7 @@ Edit `.env` and replace `[YOUR-PASSWORD]` with your Supabase database password.
 Get it from: **Supabase Dashboard → Settings → Database → Connection string**
 
 ```
-DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.bsxzqjalhrhbwsqrqoao.supabase.co:5432/postgres
+
 ```
 
 ### 3. Set up the database
@@ -29,8 +29,8 @@ Run `supabase-setup.sql` in Supabase:
 This creates all tables, indexes, and the admin user.
 
 **Admin credentials (change after first login):**
-- Email: `munenecaleb007@gmail.com`
-- Password: `Admin@Wikima2024`
+- Email: ``
+- Password: ``
 
 ### 4. Run in development
 ```bash
